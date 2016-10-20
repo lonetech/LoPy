@@ -1,6 +1,51 @@
 # LoPy (MicroPython on ESP32) access to 64-bit timer
 import uctypes
 
+# Peripheral map:
+# highaddr  4k  device
+# 3ff0_0    1   dport
+# 3ff0_1    1   aes
+# 3ff0_2    1   rsa
+# 3ff0_3    1   sha
+# 3ff0_4    1   secure boot
+# 3ff1_0    4   cache mmu table
+# 3ff1_f    1   PID controller (per CPU)
+# 3ff4_0    1   uart0
+# 3ff4_2    1   spi1
+# 3ff4_3    1   spi0
+# 3ff4_4    1   gpio
+# 3ff4_8    1   rtc (also has two blocks of 8k ram)
+# 3ff4_9    1   io mux
+# 3ff4_b    1   sdio slave (1/3 parts)
+# 3ff4_c    1   udma1
+# 3ff4_f    1   i2s0
+# 3ff5_0    1   uart1
+# 3ff5_3    1   i2c0
+# 3ff5_4    1   udma0
+# 3ff5_5    1   sdio slave (2nd of 3 parts)
+# 3ff5_6    1   RMT
+# 3ff5_7    1   PCNT
+# 3ff5_8    1   sdio slave (3rd of 3 parts)
+# 3ff5_9    1   LED PWM
+# 3ff5_a    1   Efuse controller
+# 3ff5_b    1   flash encryption
+# 3ff5_e    1   PWM0
+# 3ff5_f    1   TIMG0   (dual 64-bit general timer, tested)
+# 3ff6_0    1   TIMG1   (tested)
+# 3ff6_4    1   spi2
+# 3ff6_5    1   spi3
+# 3ff6_6    1   syscon
+# 3ff6_7    1   i2c1
+# 3ff6_8    1   SD/MMC (Note: only 1-bit wired on expansion board)
+# 3ff6_9    2   EMAC
+# 3ff6_c    1   pwm1
+# 3ff6_d    1   i2s1
+# 3ff6_e    1   uart2
+# 3ff6_f    1   pwm2
+# 3ff7_0    1   pwm3
+# 3ff7_5    1   RNG
+
+
 TIMG0T0_addr = 0x3ff5f000
 TIMG0T1_addr = 0x3ff5f024
 TIMG1T0_addr = 0x3ff60000
@@ -107,3 +152,82 @@ AES = uctypes.struct(AES_addr,  AES_regs)
 # Probably any Python access needn't touch idle.
 
 
+# GPIO registers (shouldn't be needed, there's machine.Pin)
+# TRM summary tables for these are messed up
+# w1t[sc] = write 1 to set/clear extras for atomic ops
+GPIO_regs = {name: nr*4 | uctypes.UINT32
+    for (nr, name) in enumerate("""
+    - out out_w1ts out_w1tc 
+    out1 out1_w1ts out1_w1tc -
+    enable enable_w1ts enable_w1tc enable1
+    enable1_w1ts enable1_w1tc strap in_
+    in1 status status_w1ts status_w1tc
+    status1 status1_w1ts status1_w1tc
+    acpu_int acpu_nmi_int pcpu_int pcpu_nmi_int
+    - acpi_int1 acpi_nmi_int1 pcpu_int1
+    pcpu_nmi_int1
+    """.split()) if name!="-"}
+# Note: arrays cause allocation, not interrupt safe.
+GPIO_regs['pin'] = (uctypes.ARRAY | 0x88,  40,  {
+    # 1 for open drain output
+    'pad_driver': uctypes.BFUINT32 | 0x00 | 2<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    # disabled rising falling any low high - -
+    'int_type': uctypes.BFUINT32 | 0x00 | 7<<uctypes.BF_POS | 3<<uctypes.BF_LEN, 
+    'wakeup_enable': uctypes.BFUINT32 | 0x00 | 10<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'int_ena_app': uctypes.BFUINT32 | 0x00 | 13+0<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'int_ena_app_nmi': uctypes.BFUINT32 | 0x00 | 13+1<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'int_ena_pro': uctypes.BFUINT32 | 0x00 | 13+3<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'int_ena_pro_nmi': uctypes.BFUINT32 | 0x00 | 13+4<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+})
+# Function block input selection (per function)
+GPIO_IN_TIE1 = 0x38
+GPIO_IN_TIE0 = 0x30
+GPIO_regs['func_in_sel_cfg'] = (uctypes.ARRAY | 0x130,  256,  {
+    # 0=gpio matrix, 1=bypass. reg name: GPIO_SIGm_IN_SEL
+    'bypass': uctypes.BFUINT32 | 0x00 | 7<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    # invert input value into function block
+    'func_inv': uctypes.BFUINT32 | 0x00 | 6<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    # selects which gpio matrix input (0-39) or 0x38=high 0x30=low
+    'gpio': uctypes.BFUINT32 | 0x00 | 0<<uctypes.BF_POS | 6<<uctypes.BF_LEN, 
+})
+# Function block output selection (per pin)
+GPIO_OUT_FUNC_GPIO = 0x100
+GPIO_regs['func_out_sel_cfg'] = (uctypes.ARRAY | 0x530,  40,  {
+    'oen_inv': uctypes.BFUINT32 | 0x00 | 11<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'func_oen': uctypes.BFUINT32 | 0x00 | 10<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'out_inv': uctypes.BFUINT32 | 0x00 | 11<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    # 0..255=peripheral output, 256=GPIO_DATA_REG
+    'func': uctypes.BFUINT32 | 0x00 | 0<<uctypes.BF_POS | 9<<uctypes.BF_LEN, 
+})
+GPIO = uctypes.struct(0x3ff44000,  GPIO_regs)
+
+IOmux = uctypes.struct(0x3ff53000,  (uctypes.ARRAY | 0x10,  40,  {
+    'mcu_sel': uctypes.BFUINT32 | 0 | 12<<uctypes.BF_POS | 3<<uctypes.BF_LEN, 
+
+    'func_drv': uctypes.BFUINT32 | 0 | 10<<uctypes.BF_POS | 2<<uctypes.BF_LEN, 
+    'func_ie': uctypes.BFUINT32 | 0 | 9<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'func_wpu': uctypes.BFUINT32 | 0 | 8<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'func_wpd': uctypes.BFUINT32 | 0 | 7<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+
+    # mcu prefix applies during sleep mode
+    'mcu_drv': uctypes.BFUINT32 | 0 | 5<<uctypes.BF_POS | 2<<uctypes.BF_LEN, 
+    'mcu_ie': uctypes.BFUINT32 | 0 | 4<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'mcu_wpu': uctypes.BFUINT32 | 0 | 3<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'mcu_wpd': uctypes.BFUINT32 | 0 | 2<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    # sleep select puts pad in sleep mode
+    'slp_sel': uctypes.BFUINT32 | 0 | 1<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+    'mcu_oe': uctypes.BFUINT32 | 0 | 0<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
+}))
+# Experiments have shown that expboard LED = G16 = P9 = GPIO 12.
+# P9 is pin on LoPy, GPIO 12 is in ESP32, perhaps G16 is GPIO on WiPy 1.0 ESP8266.
+# The G numbers do match the funny order on WiPy 1.0. 
+# Could map the P numbers by testing which bits they set as I did for P9. 
+# Only actually matters if we need to enable peripherals for which MicroPython doesn't work.
+
+# Example of lighting LED on expansion board:
+# from machine import Pin
+# led = Pin("G16",  mode=Pin.OUT)   # sets up output enable etc
+# led(1)    # turns it off
+# GPIO.out_w1tc = 1<<12     # turns it on (as led(0))
+# GPIO.enable_w1tc = 1<<12  # turns off the output (returns to dim light)
+# TODO: why is input dim light? Is there a pulldown?
