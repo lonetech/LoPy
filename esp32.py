@@ -219,8 +219,9 @@ IOmux = uctypes.struct(0x3ff53000,  (uctypes.ARRAY | 0x10,  40,  {
     'mcu_oe': uctypes.BFUINT32 | 0 | 0<<uctypes.BF_POS | 1<<uctypes.BF_LEN, 
 }))
 # Experiments have shown that expboard LED = G16 = P9 = GPIO 12.
-# P9 is pin on LoPy, GPIO 12 is in ESP32, perhaps G16 is GPIO on WiPy 1.0 ESP8266.
-# The G numbers do match the funny order on WiPy 1.0. 
+# P9 is pin on LoPy, GPIO 12 is in ESP32, perhaps G16 is GPIO on WiPy 1.0.
+# The G numbers do match the funny order on WiPy 1.0, which uses CC3200,
+# which in turn does have the odd gaps (GPIO 16, 17, 22, 28). 
 # Could map the P numbers by testing which bits they set as I did for P9. 
 # Only actually matters if we need to enable peripherals for which MicroPython doesn't work.
 
