@@ -232,3 +232,39 @@ IOmux = uctypes.struct(0x3ff53000,  (uctypes.ARRAY | 0x10,  40,  {
 # GPIO.out_w1tc = 1<<12     # turns it on (as led(0))
 # GPIO.enable_w1tc = 1<<12  # turns off the output (returns to dim light)
 # TODO: why is input dim light? Is there a pulldown?
+
+# RTC has some special functions also. Finding those registers...
+RTCIO_regs = {
+    # RTC registers are mapped weirdly. Looks like it expects word address,
+    # yet is mapped to the least significant bits. 
+    'gpio_out': uctypes.BFUINT32 | 0 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_out_w1ts': uctypes.BFUINT32 | 1 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_out_w1tc': uctypes.BFUINT32 | 2 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_enable': uctypes.BFUINT32 | 3 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_enable_w1ts': uctypes.BFUINT32 | 4 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_enable_w1tc': uctypes.BFUINT32 | 5 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_status': uctypes.BFUINT32 | 6 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_status_w1ts': uctypes.BFUINT32 | 7 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_status_w1tc': uctypes.BFUINT32 | 8 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_in': uctypes.BFUINT32 | 9 | 14<<uctypes.BF_POS | 18<<uctypes.BF_LEN,
+    'gpio_pin': (uctypes.ARRAY | 0x0a, 18, {
+        'pad_driver': uctypes.BFUINT32 | 0 | 2<<uctypes.PF_POS | 1<<uctypes.BF_LEN,
+        'int_type': uctypes.BFUINT32 | 0 | 7<<uctypes.PF_POS | 3<<uctypes.BF_LEN,
+        'wakeup_enable': uctypes.BFUINT32 | 0 | 10<<uctypes.PF_POS | 1<<uctypes.BF_LEN,
+    }),
+    'dig_pad_hold': uctypes.UINT32 | 0x1d,
+    'hall_sens': uctypes.UINT32 | 0x1e,
+    'sensor_pads': uctypes.UINT32 | 0x1f,
+    'adc_pad': uctypes.UINT32 | 0x20,
+    'pad_dac1': uctypes.UINT32 | 0x21,
+    'pad_dac2': uctypes.UINT32 | 0x22,
+    'xtal_32k_pad': uctypes.UINT32 | 0x23,
+    'touch_cfg': uctypes.UINT32 | 0x24,
+    # Erm.. I don't think uctypes will like an array of 10 overlapping words.
+    #'touch_pad': (uctypes.ARRAY | 0x25, uctypes.UINT32 | 0x24,
+    'ext_wakeup0': uctypes.UINT32 | 0x2f,
+    'xtl_ext_ctr': uctypes.UINT32 | 0x30,
+    'sar_i2c_io': uctypes.UINT32 | 0x31,
+}
+RTCIO = uctypes.struct(0x3ff48000, RTCIO_regs)
+
