@@ -201,6 +201,13 @@ GPIO_regs['func_out_sel_cfg'] = (uctypes.ARRAY | 0x530,  40,  {
 })
 GPIO = uctypes.struct(0x3ff44000,  GPIO_regs)
 
+# Note: IOmux order is weird, not by GPIO pin number.
+IOmux_order = [None if name=='-' else name for name in
+               """- GPIO36 GPIO37 GPIO38 GPIO39 GPIO34 GPIO35 GPIO32 GPIO33 
+               GPIO25 GPIO26 GPIO27 MTMS MTDI MTCK MTDO GPIO2 GPIO0 GPIO4
+               GPIO16 GPIO17 SD_DATA2 SD_DATA3 SD_CMD SD_CLK SD_DATA0 SD_DATA1
+               GPIO5 GPIO18 GPIO19 GPIO20 GPIO21 GPIO22 U0RXD U0TXD GPIO23 
+               GPIO24""".split()]
 IOmux = uctypes.struct(0x3ff53000,  (uctypes.ARRAY | 0x10,  40,  {
     'mcu_sel': uctypes.BFUINT32 | 0 | 12<<uctypes.BF_POS | 3<<uctypes.BF_LEN, 
 
@@ -268,3 +275,10 @@ RTCIO_regs = {
 }
 RTCIO = uctypes.struct(0x3ff48000, RTCIO_regs)
 
+
+# module control!
+DPORT = uctypes.struct(0x3ff00000, {
+    'perip_clk_en': (0x0c0, {'rmt': uctypes.BFUINT32 | 0 | 9<<uctypes.BF_POS | 1<<uctypes.BF_LEN}),
+    'perip_rst_en': (0x0c4, {'rmt': uctypes.BFUINT32 | 0 | 9<<uctypes.BF_POS | 1<<uctypes.BF_LEN}),
+})
+# Bit 9 is the RMT
