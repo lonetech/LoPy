@@ -232,3 +232,85 @@ IOmux = uctypes.struct(0x3ff53000,  (uctypes.ARRAY | 0x10,  40,  {
 # GPIO.out_w1tc = 1<<12     # turns it on (as led(0))
 # GPIO.enable_w1tc = 1<<12  # turns off the output (returns to dim light)
 # TODO: why is input dim light? Is there a pulldown?
+
+
+# LED PWM function block
+LEDC_regs = {
+    'conf': uctypes.UINT32 | 0x190, 
+    'apb_clk_sel': uctypes.BFUINT32 | 0x190 | 0<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+    
+    'hsch': (uctypes.ARRAY | 0x000,  8,  {
+	# Note: struct is 0x14, per summary table, not register reference
+        'conf0': uctypes.UINT32 | 0x00,	# bitfield:
+        'timer_sel': uctypes.BFUINT32 | 0x00 | 0<<uctypes.BF_POS | 2<<uctypes.BF_LEN,
+        'sig_out_en': uctypes.BFUINT32 | 0x00 | 2<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        'idle_lv': uctypes.BFUINT32 | 0x00 | 3<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        
+        'hpoint': uctypes.UINT32 | 0x04,		# 20 bit
+        'duty': uctypes.UINT32 | 0x08,		# 25 bit
+
+        'conf1': uctypes.UINT32 | 0x0c,
+        'duty_scale': uctypes.BFUINT32 | 0x0c | 0<<uctypes.BF_POS | 10<<uctypes.BF_LEN,
+        'duty_cycle': uctypes.BFUINT32 | 0x0c | 10<<uctypes.BF_POS | 10<<uctypes.BF_LEN,	# amount to change duty cycle per cycle
+        'duty_num': uctypes.BFUINT32 | 0x0c | 20<<uctypes.BF_POS | 10<<uctypes.BF_LEN,	# number of times to change it
+        'duty_inc': uctypes.BFUINT32 | 0x0c | 30<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# increase or decrease
+        'duty_start': uctypes.BFUINT32 | 0x0c | 31<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# write 1 to make these fields take effect
+        
+        'duty_r': uctypes.UINT32 | 0x10,
+    }),
+
+    'lsch': (uctypes.ARRAY | 0x0a0,  8,  {
+	# Note: struct is 0x14, per summary table, not register reference
+        'conf0': uctypes.UINT32 | 0x00,	# bitfield:
+        'timer_sel': uctypes.BFUINT32 | 0x00 | 0<<uctypes.BF_POS | 2<<uctypes.BF_LEN,
+        'sig_out_en': uctypes.BFUINT32 | 0x00 | 2<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        'idle_lv': uctypes.BFUINT32 | 0x00 | 3<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        'para_up': uctypes.BFUINT32 | 0x00 | 4<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# updates hpoint and duty
+        
+        'hpoint': uctypes.UINT32 | 0x04,		# 20 bit
+        'duty': uctypes.UINT32 | 0x08,		# 25 bit
+
+        'conf1': uctypes.UINT32 | 0x0c,
+        'duty_scale': uctypes.BFUINT32 | 0x0c | 0<<uctypes.BF_POS | 10<<uctypes.BF_LEN,
+        'duty_cycle': uctypes.BFUINT32 | 0x0c | 10<<uctypes.BF_POS | 10<<uctypes.BF_LEN,	# amount to change duty cycle per cycle
+        'duty_num': uctypes.BFUINT32 | 0x0c | 20<<uctypes.BF_POS | 10<<uctypes.BF_LEN,	# number of times to change it
+        'duty_inc': uctypes.BFUINT32 | 0x0c | 30<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# increase or decrease
+        'duty_start': uctypes.BFUINT32 | 0x0c | 31<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# write 1 to make these fields take effect
+        
+        'duty_r': uctypes.UINT32 | 0x10,
+    }),
+
+    'hstimer': (uctypes.ARRAY | 0x140,  4,  {
+        # bitfield conf
+        # lim: count goes in range(0,2**lim), max 20
+        'lim': uctypes.BFUINT32 | 0x0 | 0<<uctypes.BF_POS | 5<<uctypes.BF_LEN,
+        'div_num': uctypes.BFUINT32 | 0x0 | 5<<uctypes.BF_POS | 18<<uctypes.BF_LEN,	# 10.8 fixed point divider
+        'pause': uctypes.BFUINT32 | 0x0 | 23<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        'rst': uctypes.BFUINT32 | 0x0 | 24<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        'tick_sel': uctypes.BFUINT32 | 0x0 | 25<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# 1: apb_clk, 0: ref_clk
+
+        'cnt': uctypes.UINT32 | 0x4,	# 20 bit
+    }),
+    
+    'lstimer': (uctypes.ARRAY | 0x160,  4,  {
+        # bitfield conf
+        # lim: count goes in range(0,2**lim), max 20
+        'lim': uctypes.BFUINT32 | 0x0 | 0<<uctypes.BF_POS | 5<<uctypes.BF_LEN,
+        'div_num': uctypes.BFUINT32 | 0x0 | 5<<uctypes.BF_POS | 18<<uctypes.BF_LEN,	# 10.8 fixed point divider
+        'pause': uctypes.BFUINT32 | 0x0 | 23<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        'rst': uctypes.BFUINT32 | 0x0 | 24<<uctypes.BF_POS | 1<<uctypes.BF_LEN,
+        'tick_sel': uctypes.BFUINT32 | 0x0 | 25<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# 1: apb_clk, 0: ref_clk
+        'para_up': uctypes.BFUINT32 | 0x0 | 4<<uctypes.BF_POS | 1<<uctypes.BF_LEN,	# set to update
+
+        'cnt': uctypes.UINT32 | 0x4,	# 20 bit
+    }),
+
+    # interrupt bitmasks
+    # order from lsb: hstimer 0-3 overflow, lstimer 0-3 overflow, duty change end hs 0-7 ls 0-7
+    'int_raw': uctypes.UINT32 | 0x180,	# raw interrupt status bits
+    'int_st': uctypes.UINT32 | 0x184,	# masked interrupt status
+    'int_ena': uctypes.UINT32 | 0x188,	# enables
+    'int_clr': uctypes.UINT32 | 0x18c,	# clear
+}
+LEDC_addr = 0x3ff59000
+LEDC = uctypes.struct(LEDC_addr, LEDC_regs)
