@@ -36,13 +36,13 @@ def add_new_msg(text):
     msg = bytearray([send_tries, msg_seq])
     msg.extend(machine.unique_id())
     msg.extend(text)
-    msg_seq = (msq_seq+1) & 0xff
+    msg_seq = (msg_seq+1) & 0xff
     log.append(msg)
 def recvd_msg(msg):
     # search log for identical message
     if msg[:4]!=b"Chat":
         return
-    msg=msg[4:]
+    msg=bytearray(msg[4:])
     for lmsg in log:
         if lmsg[1:] == msg[1:]:
             # Already seen message
@@ -50,6 +50,7 @@ def recvd_msg(msg):
     # New message, record it
     # It will propagate if its transmit counter permits it
     log.append(msg)
+    return msg
 
 def bt_post_handler(*args):
     add_new_msg(post.value())
@@ -126,8 +127,9 @@ while True:
                 inline = inline + ch
         elif reader[0] is lora_s:
             msg = lora_s.recv(64)
-            recvd_msg(msg)
-            uart.write(repr().encode('ascii')+b"\r\n")
+            msg = recvd_msg(msg)
+            if msg:
+                uart.write(repr(msg).encode('ascii')+b"\r\n")
     if not readers:
         # probably timeout. go for retransmit
         send_unsent_log()
